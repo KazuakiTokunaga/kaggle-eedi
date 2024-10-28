@@ -55,7 +55,7 @@ class Runner:
     def __init__(self, env="colab", commit_hash=""):
         global ENV, ROOT_PATH, OUTPUT_PATH
         ENV = env
-        ROOT_PATH = "/content/drive/MyDrive/ISIC2024" if ENV == "colab" else "/kaggle"
+        ROOT_PATH = "/content/drive/MyDrive/eedi" if ENV == "colab" else "/kaggle"
         OUTPUT_PATH = ROOT_PATH if ENV == "colab" else "/kaggle/working"
         if ENV == "kaggle":
             (Path(OUTPUT_PATH) / "log").mkdir(exist_ok=True)
@@ -105,11 +105,11 @@ class Runner:
             self.df_ret = self.df_train.copy()
         else:
             self.df_ret = self.df_test.copy()
-        self.df_misconception_mapping = pd.read_csv("/kaggle/input/eedi-mining-misconceptions-in-mathematics/misconception_mapping.csv")
+        self.df_misconception_mapping = pd.read_csv(f"{ROOT_PATH}/eedi-mining-misconceptions-in-mathematics/misconception_mapping.csv")
 
         self.model_llm_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_llm_path)
-        self.model_retriever = SentenceTransformer("/kaggle/input/eedi-finetuned-bge-public/Eedi-finetuned-bge")
+        self.model_retriever = SentenceTransformer(f"{ROOT_PATH}/eedi-finetuned-bge-public/Eedi-finetuned-bge")
 
         self.df_ret.to_parquet("df_target.parquet", index=False)
 
