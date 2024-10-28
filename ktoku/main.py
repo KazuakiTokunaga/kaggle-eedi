@@ -110,7 +110,7 @@ class Runner:
         # self.model_llm_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
         self.model_llm_path = "Qwen/Qwen2.5-3B-Instruct"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_llm_path)
-        self.model_retriever = SentenceTransformer(f"{ROOT_PATH}/eedi-finetuned-bge-public/Eedi-finetuned-bge")
+        self.model_retriever = SentenceTransformer(f"{ROOT_PATH}/input/eedi-finetuned-bge-public/Eedi-finetuned-bge")
 
         self.df_ret.to_parquet("df_target.parquet", index=False)
 
