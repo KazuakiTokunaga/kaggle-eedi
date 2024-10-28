@@ -105,7 +105,7 @@ class Runner:
             self.df_ret = self.df_train.copy()
         else:
             self.df_ret = self.df_test.copy()
-        self.df_misconception_mapping = pd.read_csv(f"{ROOT_PATH}/eedi-mining-misconceptions-in-mathematics/misconception_mapping.csv")
+        self.df_misconception_mapping = pd.read_csv(f"{ROOT_PATH}/input/eedi-mining-misconceptions-in-mathematics/misconception_mapping.csv")
 
         self.model_llm_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_llm_path)
