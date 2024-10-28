@@ -107,7 +107,8 @@ class Runner:
             self.df_ret = self.df_test.copy()
         self.df_misconception_mapping = pd.read_csv(f"{ROOT_PATH}/input/eedi-mining-misconceptions-in-mathematics/misconception_mapping.csv")
 
-        self.model_llm_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
+        # self.model_llm_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
+        self.model_llm_path = "Qwen/Qwen2.5-3B-Instruct"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_llm_path)
         self.model_retriever = SentenceTransformer(f"{ROOT_PATH}/eedi-finetuned-bge-public/Eedi-finetuned-bge")
 
