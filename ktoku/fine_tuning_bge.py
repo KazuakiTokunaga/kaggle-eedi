@@ -24,6 +24,7 @@ NUM_PROC = os.cpu_count()
 class RCFG:
     """実行に関連する設定"""
 
+    RUN_NAME = "test"
     MODEL_NAME = "BAAI/bge-large-en-v1.5"
     RETRIEVE_NUM = 25
     EPOCH = 2
