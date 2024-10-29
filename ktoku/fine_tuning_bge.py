@@ -24,12 +24,7 @@ NUM_PROC = os.cpu_count()
 class RCFG:
     """実行に関連する設定"""
 
-    EXP_NAME = "fine-tuning-bge"
-    DATA_PATH = "/kaggle/input/eedi-mining-misconceptions-in-mathematics"
     MODEL_NAME = "BAAI/bge-large-en-v1.5"
-    COMPETITION_NAME = "eedi-mining-misconceptions-in-mathematics"
-    OUTPUT_PATH = "."
-    MODEL_OUTPUT_PATH = f"{OUTPUT_PATH}/trained_model"
     RETRIEVE_NUM = 25
     EPOCH = 2
     LR = 2e-05
@@ -49,14 +44,12 @@ class Runner:
     def __init__(self, env="colab", commit_hash=""):
         global ENV, ROOT_PATH, OUTPUT_PATH
         ENV = env
-        ROOT_PATH = "/content/drive/MyDrive/ISIC2024" if ENV == "colab" else "/kaggle"
+        ROOT_PATH = "/content/drive/MyDrive/eedi" if ENV == "colab" else "/kaggle"
         OUTPUT_PATH = ROOT_PATH if ENV == "colab" else "/kaggle/working"
         if ENV == "kaggle":
             (Path(OUTPUT_PATH) / "log").mkdir(exist_ok=True)
             (Path(OUTPUT_PATH) / "data").mkdir(exist_ok=True)
             (Path(OUTPUT_PATH) / "model").mkdir(exist_ok=True)
-        (Path(OUTPUT_PATH) / "model" / RCFG.RUN_NAME).mkdir(exist_ok=True)
-        self.model_run_name = RCFG.MODEL_NAME + "_" + RCFG.RUN_NAME
 
         set_random_seed()
         global logger
@@ -66,14 +59,6 @@ class Runner:
 
         # Initialize info
         self.info = {"start_dt_jst": start_dt_jst}
-        self.info["fold_auroc"] = [0 for _ in range(5)]
-        self.info["mean_auroc"] = 0
-        self.info["oof_auroc"] = 0
-        self.info["fold_pauc"] = [0 for _ in range(5)]
-        self.info["mean_pauc"] = 0
-        self.info["oof_pauc"] = 0
-        self.info["fold_validloss"] = [0 for _ in range(5)]
-        self.info["mean_validloss"] = 0
 
         logger.info(f"commit_hash: {commit_hash}")
         RCFG.COMMIT_HASH = commit_hash
@@ -91,8 +76,8 @@ class Runner:
     def run(
         self,
     ):
-        train = pl.read_csv(f"{RCFG.DATA_PATH}/train.csv")
-        misconception_mapping = pl.read_csv(f"{RCFG.DATA_PATH}/misconception_mapping.csv")
+        train = pl.read_csv(f"{ROOT_PATH}/input/eedi-mining-misconceptions-in-mathematics/train.csv")
+        misconception_mapping = pl.read_csv(f"{ROOT_PATH}/input/eedi-mining-misconceptions-in-mathematics/misconception_mapping.csv")
 
         common_col = [
             "QuestionId",
@@ -212,4 +197,4 @@ class Runner:
         trainer = SentenceTransformerTrainer(model=model, args=args, train_dataset=train.select_columns(["AllText", "MisconceptionName", "PredictMisconceptionName"]), loss=loss)
 
         trainer.train()
-        model.save_pretrained(RCFG.MODEL_OUTPUT_PATH)
+        model.save_pretrained(f"{OUTPUT_PATH}/model/test")
