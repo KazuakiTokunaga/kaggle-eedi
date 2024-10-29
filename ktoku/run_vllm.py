@@ -7,7 +7,7 @@ df = pd.read_parquet("df_target.parquet")
 
 # model_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
 # model_path = "Qwen/Qwen2.5-3B-Instruct"
-model_path = "Qwen/Qwen2.5-32B-Instruct-AWS"
+model_path = "Qwen/Qwen2.5-32B-Instruct-AWQ"
 
 llm = vllm.LLM(
     model_path,
