@@ -160,14 +160,13 @@ class Runner:
             num_proc=NUM_PROC,
         )
 
+        logger.info(f"train.shape: {train.shape}")
         if RCFG.DEBUG:
             train = train.select(range(1000))
             EPOCH = 1
 
         model = SentenceTransformer(RCFG.MODEL_NAME)
-
         loss = MultipleNegativesRankingLoss(model)
-
         args = SentenceTransformerTrainingArguments(
             # Required parameter:
             output_dir=OUTPUT_PATH,
@@ -196,5 +195,6 @@ class Runner:
 
         trainer = SentenceTransformerTrainer(model=model, args=args, train_dataset=train.select_columns(["AllText", "MisconceptionName", "PredictMisconceptionName"]), loss=loss)
 
+        logger.info("Start training.")
         trainer.train()
         model.save_pretrained(f"{OUTPUT_PATH}/model/test")
