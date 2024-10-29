@@ -34,6 +34,7 @@ class RCFG:
     TRAINING = True
     DEBUG = False
     WANDB = True
+    REPORT_TO = "none"
 
 
 ######################################################
@@ -190,7 +191,7 @@ class Runner:
             save_total_limit=2,
             logging_steps=100,
             report_to=RCFG.REPORT_TO,  # Will be used in W&B if `wandb` is installed
-            run_name=RCFG.EXP_NAME,
+            run_name=RCFG.RUN_NAME,
             do_eval=False,
         )
 
