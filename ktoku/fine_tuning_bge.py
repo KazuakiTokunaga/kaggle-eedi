@@ -164,7 +164,7 @@ class Runner:
         logger.info(f"train.shape: {train.shape}")
         if RCFG.DEBUG:
             train = train.select(range(1000))
-            EPOCH = 1
+            RCFG.EPOCH = 1
 
         model = SentenceTransformer(RCFG.MODEL_NAME)
         loss = MultipleNegativesRankingLoss(model)
@@ -172,7 +172,7 @@ class Runner:
             # Required parameter:
             output_dir=OUTPUT_PATH,
             # Optional training parameters:
-            num_train_epochs=EPOCH,
+            num_train_EPOCHs=RCFG.EPOCH,
             per_device_train_batch_size=RCFG.BS,
             gradient_accumulation_steps=RCFG.GRAD_ACC_STEP,
             per_device_eval_batch_size=RCFG.BS,
