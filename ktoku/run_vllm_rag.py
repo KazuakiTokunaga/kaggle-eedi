@@ -5,12 +5,14 @@ import vllm
 
 df = pd.read_parquet("submission.parquet")
 
-model_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
+# model_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
+# model_path = "Qwen/Qwen2.5-3B-Instruct"
+model_path = "Qwen/Qwen2.5-32B-Instruct-AWS"
 
 llm = vllm.LLM(
     model_path,
     quantization="awq",
-    tensor_parallel_size=2,
+    tensor_parallel_size=1,
     gpu_memory_utilization=0.90,
     trust_remote_code=True,
     dtype="half",
