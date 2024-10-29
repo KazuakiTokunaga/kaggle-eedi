@@ -173,7 +173,7 @@ class Runner:
             # Required parameter:
             output_dir=OUTPUT_PATH,
             # Optional training parameters:
-            num_train_EPOCH=RCFG.EPOCH,
+            num_train_epochs=RCFG.EPOCH,
             per_device_train_batch_size=RCFG.BS,
             gradient_accumulation_steps=RCFG.GRAD_ACC_STEP,
             per_device_eval_batch_size=RCFG.BS,
