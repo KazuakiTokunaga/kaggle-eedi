@@ -44,4 +44,5 @@ if __name__ == "__main__":
     parser.add_argument("--quantization", type=str, default=None)  # awq
     args = parser.parse_args()
 
+    print("Run vllm args:", args)
     main(filename=args.file_path, model_path=args.model_path, quantization=args.quantization)
