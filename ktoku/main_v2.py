@@ -19,7 +19,7 @@ class RCFG:
     """実行に関連する設定"""
 
     FILE_NAME = ""  # __file__.split("/")[-1]
-    RUN_NAME = "test"
+    RUN_NAME = "test2"
     DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
     DEBUG = False
     DEBUG_SIZE = 30
@@ -47,7 +47,7 @@ def preprocess_text(x, ver="v1"):
     return x
 
 
-def get_val_score(df_target, k=25):
+def get_val_score(df_target, target_col="MisconceptionId", k=25):
     df_target["true"] = df_target.apply(lambda x: x[f"Misconception{x.answer_name}Id"], axis=1)
 
     apks = []
@@ -56,7 +56,7 @@ def get_val_score(df_target, k=25):
             apks.append(np.nan)
         else:
             actual = [int(row.true)]
-            pred = list(map(int, row.MisconceptionId.split()))
+            pred = list(map(int, row[target_col].split()))
             apk_score = apk(actual, pred, k)
             apks.append(apk_score)
 
@@ -65,7 +65,7 @@ def get_val_score(df_target, k=25):
     return df_target, val_score
 
 
-def create_retrieval_text(row, mapping, k=10):
+def create_retrieval_text(row, mapping, k=25):
     misconceptions_ids = list(map(int, row.MisconceptionId.split()))
     misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
 
@@ -84,7 +84,7 @@ def apply_template(row, tokenizer):
     Incorrect Answer: {IncorrectAnswer}
 
     You are a Mathematics teacher. Your task is to reason and identify the misconception behind the Incorrect Answer with the Question.
-    From the options below, please select the five that you consider most appropriate, in order of preference.
+    From the options below, please select the ten that you consider most appropriate, in order of preference.
     Answer by listing the option numbers in a comma-separated format. No additional output is required.
 
     Options:
@@ -175,5 +175,13 @@ class Runner:
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
 
         logger.info("Save df_target.")
+        df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
+        df_target.to_parquet("df_target.parquet", index=False)
+
+    def merge_ranking(self, df_target):
+        df_target["llm_misconceptionId"] = df_target["fullLLMText"]
+        df_target, val_score = get_val_score(df_target, target_col="llm_misconceptionId")
+        logger.info(f"Validation score: {val_score}")
+
         df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
         df_target.to_parquet("df_target.parquet", index=False)
