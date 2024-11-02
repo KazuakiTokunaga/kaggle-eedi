@@ -25,6 +25,7 @@ class RCFG:
     DEBUG_SIZE = 30
     COMMIT_HASH = ""
     USE_FOLD = []  # 空のときは全fold、0-4で指定したfoldのみを使う
+    MODEL_LLM_PATH = "Qwen/Qwen2.5-3B-Instruct"
     DROP_NA = False
     SAVE_TO_SHEET = True
     SHEET_KEY = "1D-8FAIA4mj7LxaUkiQb5L1dS_aZ2pdSB2uK8Hd_DTfI"
@@ -157,7 +158,7 @@ class Runner:
             self.df_train = self.df_train.sample(RCFG.DEBUG_SIZE, random_state=42).reset_index(drop=True)
 
         # self.model_llm_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
-        self.model_llm_path = "Qwen/Qwen2.5-3B-Instruct"
+        self.model_llm_path = RCFG.MODEL_LLM_PATH
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_llm_path)
 
     def retrieve(

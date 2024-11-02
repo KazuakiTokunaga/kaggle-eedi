@@ -1,12 +1,7 @@
 import argparse
-import re
 
 import pandas as pd
 import vllm
-
-
-def extract_response(text):
-    return ",".join(re.findall(r"<response>(.*?)</response>", text)).strip()
 
 
 def main(filename, model_path, quantization=None):
@@ -39,15 +34,14 @@ def main(filename, model_path, quantization=None):
 
     responses = [x.outputs[0].text for x in responses]
     df["fullLLMText"] = responses
-    df["LLMText"] = df["fullLLMText"].apply(extract_response)
     df.to_parquet("df_target.parquet", index=False)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, default="Qwen/Qwen2.5-3B-Instruct")
+    parser.add_argument("--model_path", type=str, default="Qwen/Qwen2.5-3B-Instruct")  # Qwen/Qwen2.5-32B-Instruct-AWQ
     parser.add_argument("--file_path", type=str, default="df_target.parquet")
-    parser.add_argument("--quantization", type=str, default=None)
+    parser.add_argument("--quantization", type=str, default=None)  # awq
     args = parser.parse_args()
 
     main(filename=args.file_path, model_path=args.model_path, quantization=args.quantization)
