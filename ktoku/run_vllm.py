@@ -50,4 +50,4 @@ if __name__ == "__main__":
     parser.add_argument("--quantization", type=str, default=None)
     args = parser.parse_args()
 
-    main(filaname=args.file_path, model_path=args.model_path, quantization=args.quantization)
+    main(filename=args.file_path, model_path=args.model_path, quantization=args.quantization)

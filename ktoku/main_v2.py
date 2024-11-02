@@ -25,6 +25,7 @@ class RCFG:
     DEBUG_SIZE = 30
     COMMIT_HASH = ""
     USE_FOLD = []  # 空のときは全fold、0-4で指定したfoldのみを使う
+    DROP_NA = False
     SAVE_TO_SHEET = True
     SHEET_KEY = "1D-8FAIA4mj7LxaUkiQb5L1dS_aZ2pdSB2uK8Hd_DTfI"
     SHEET_NAME = "cv_ktoku"
@@ -76,9 +77,6 @@ def create_retrieval_text(row, mapping, k=10):
 
 
 def apply_template(row, tokenizer):
-    if pd.isna(row.true):
-        return np.nan
-
     PROMPT = """Here is a question about {ConstructName}({SubjectName}).
     Question: {Question}
     Correct Answer: {CorrectAnswer}
@@ -170,10 +168,11 @@ class Runner:
     def prepare_llm_reranker(self, df_target):
         logger.info("Create LLM input for llmreranker.")
         df_target["true"] = df_target.apply(lambda x: x[f"Misconception{x.answer_name}Id"], axis=1)
+        if RCFG.DROP_NA:
+            df_target = df_target.dropna(subset=["true"]).reset_index(drop=True)
         df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text(x, self.df_mapping), axis=1)
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
 
         logger.info("Save df_target.")
         df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
         df_target.to_parquet("df_target.parquet", index=False)
-        return df_target
