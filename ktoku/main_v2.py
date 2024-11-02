@@ -155,6 +155,7 @@ class Runner:
         self.df_mapping = pd.read_csv(f"{ROOT_PATH}/input/eedi-mining-misconceptions-in-mathematics/misconception_mapping.csv")
 
         if RCFG.DEBUG:
+            logger.info(f"DEBUG MODE. Reduce the size of the dataset: {RCFG.DEBUG_SIZE}.")
             self.df_train = self.df_train.sample(RCFG.DEBUG_SIZE, random_state=42).reset_index(drop=True)
 
         # self.model_llm_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
@@ -167,10 +168,12 @@ class Runner:
         pass
 
     def prepare_llm_reranker(self, df_target):
+        logger.info("Create LLM input for llmreranker.")
         df_target["true"] = df_target.apply(lambda x: x[f"Misconception{x.answer_name}Id"], axis=1)
         df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text(x, self.df_mapping), axis=1)
-        df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer, x.answer_name), axis=1)
+        df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
 
+        logger.info("Save df_target.")
         df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
         df_target.to_parquet("df_target.parquet", index=False)
         return df_target
