@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import torch
 from eedi_score import apk
-from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer
 from utils import Logger, WriteSheet, set_random_seed
 
@@ -69,8 +68,10 @@ def create_retrieval_text(row, mapping, k=10):
     misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
 
     res_text = ""
-    for id, text in zip(misconceptions_ids, misconceptions_text)[:k]:
+    for i, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text)):
         res_text += f"{id}. {text}\n"
+        if i == k - 1:
+            break
     return res_text
 
 
@@ -159,7 +160,6 @@ class Runner:
         # self.model_llm_path = "/kaggle/input/qwen2.5/transformers/32b-instruct-awq/1"
         self.model_llm_path = "Qwen/Qwen2.5-3B-Instruct"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_llm_path)
-        self.model_retriever = SentenceTransformer(f"{ROOT_PATH}/input/eedi-finetuned-bge-public/Eedi-finetuned-bge")
 
     def retrieve(
         self,
@@ -171,5 +171,6 @@ class Runner:
         df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text(x, self.df_mapping), axis=1)
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer, x.answer_name), axis=1)
 
-        df_target.to_parquet(OUTPUT_PATH / "submission.parquet", index=False)
+        df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
+        df_target.to_parquet("df_target.parquet", index=False)
         return df_target
