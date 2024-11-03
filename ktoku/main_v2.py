@@ -210,7 +210,7 @@ class Runner:
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
 
         logger.info("Save df_target.")
-        df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
+        df_target.to_parquet(Path(OUTPUT_PATH) / "df_target.parquet", index=False)
 
         return df_target
 
@@ -219,14 +219,14 @@ class Runner:
         df_target, val_score = get_val_score(df_target, target_col="llm_misconceptionId")
         logger.info(f"llm_misconceptionId_score: {val_score}")
 
-        df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
+        df_target.to_parquet(Path(OUTPUT_PATH) / "df_target.parquet", index=False)
         df_target.to_parquet("df_target.parquet", index=False)
 
         df_target["merged_ranking"] = df_target.apply(lambda x: create_merge_ranking_columns(x), axis=1)
         df_target, val_score = get_val_score(df_target, target_col="merged_ranking")
         logger.info(f"merged_ranking_score: {val_score}")
 
-        df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
+        df_target.to_parquet(Path(OUTPUT_PATH) / "df_target.parquet", index=False)
 
         return df_target
 
