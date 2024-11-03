@@ -49,8 +49,6 @@ def preprocess_text(x, ver="v1"):
 
 
 def get_val_score(df_target, target_col="MisconceptionId", k=25):
-    df_target["true"] = df_target.apply(lambda x: x[f"Misconception{x.answer_name}Id"], axis=1)
-
     apks = []
     for _, row in df_target.iterrows():
         if pd.isna(row.true):
