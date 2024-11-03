@@ -18,6 +18,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 class RCFG:
     """実行に関連する設定"""
 
+    SUBMIT = False
     FILE_NAME = ""  # __file__.split("/")[-1]
     RUN_NAME = "test2"
     DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -203,7 +204,10 @@ class Runner:
 
     def prepare_llm_reranker(self, df_target):
         logger.info("Create LLM input for llmreranker.")
-        df_target["true"] = df_target.apply(lambda x: x[f"Misconception{x.answer_name}Id"], axis=1)
+        if not RCFG.SUBMIT:
+            df_target["true"] = df_target.apply(lambda x: x[f"Misconception{x.answer_name}Id"], axis=1)
+        else:
+            df_target["true"] = 1
         if RCFG.DROP_NA:
             df_target = df_target.dropna(subset=["true"]).reset_index(drop=True)
         df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text(x, self.df_mapping), axis=1)
