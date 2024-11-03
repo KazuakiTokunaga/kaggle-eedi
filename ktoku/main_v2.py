@@ -112,6 +112,41 @@ def apply_template(row, tokenizer):
     return text
 
 
+def postprocess_llm_output(row):
+    x = row["fullLLMText"]
+    try:
+        res = x.split("\n")[0].replace(",", " ")
+        res_lst = list(map(int, res.split()))
+        assert len(res_lst) == 10
+    except:  # noqa
+        res = " ".join(row["MisconceptionId"].split()[:10])
+    return res
+
+
+def merge_ranking(r1, r2, w1=0.5, w2=0.5):
+    ranking_dict = {idx: rank for rank, idx in enumerate(r1)}
+    reranking_dict = {idx: rank for rank, idx in enumerate(r2)}
+
+    # スコアを計算
+    scores = []
+    for idx in r1:
+        rank_score = ranking_dict.get(idx, len(r1))
+        rerank_score = reranking_dict.get(idx, len(r2))
+        score = w1 * rank_score + w2 * rerank_score
+        scores.append((idx, score))
+
+    # スコアでソートしてランキングを改良
+    refined_ranking = [idx for idx, score in sorted(scores, key=lambda x: x[1])]
+    return refined_ranking
+
+
+def create_merge_ranking_columns(row, w1=0.5, w2=0.5):
+    r1 = list(map(int, row["MisconceptionId"].split()))
+    r2 = list(map(int, row["llm_misconceptionId"].split()))
+    refined_ranking = merge_ranking(r1, r2, w1=w1, w2=w2)
+    return " ".join(map(str, refined_ranking))
+
+
 ######################################################
 # Runner
 ######################################################
@@ -176,12 +211,29 @@ class Runner:
 
         logger.info("Save df_target.")
         df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
-        df_target.to_parquet("df_target.parquet", index=False)
+
+        return df_target
 
     def merge_ranking(self, df_target):
-        df_target["llm_misconceptionId"] = df_target["fullLLMText"]
+        df_target["llm_misconceptionId"] = df_target.apply(lambda x: postprocess_llm_output(x), axis=1)
         df_target, val_score = get_val_score(df_target, target_col="llm_misconceptionId")
-        logger.info(f"Validation score: {val_score}")
+        logger.info(f"llm_misconceptionId_score: {val_score}")
 
         df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
         df_target.to_parquet("df_target.parquet", index=False)
+
+        df_target["merged_ranking"] = df_target.apply(lambda x: create_merge_ranking_columns(x), axis=1)
+        df_target, val_score = get_val_score(df_target, target_col="merged_ranking")
+        logger.info(f"merged_ranking_score: {val_score}")
+
+        df_target.to_parquet(OUTPUT_PATH / "df_target.parquet", index=False)
+
+        return df_target
+
+    def create_submission_file(self, df_target):
+        sub = []
+        for _, row in df_target.iterrows():
+            sub.append({"QuestionId_Answer": f"{row['QuestionId']}_{row['answer_name']}", "MisconceptionId": row["MisconceptionId"]})
+        submission_df = pd.DataFrame(sub)
+        submission_df.to_csv("submission.csv", index=False)
+        logger.info("Submission file created successfully!")
