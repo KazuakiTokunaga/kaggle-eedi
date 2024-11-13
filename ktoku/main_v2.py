@@ -174,6 +174,7 @@ class Runner:
         self.info = {"start_dt_jst": start_dt_jst}
         self.info["llm_ranking_score"] = 0
         self.info["merged_ranking_score"] = 0
+        self._update_sheet()
 
         logger.info(f"commit_hash: {commit_hash}")
         RCFG.COMMIT_HASH = commit_hash
@@ -208,7 +209,15 @@ class Runner:
     ):
         pass
 
-    def prepare_llm_reranker(self, df_target):
+    def prepare_llm_reranker(
+        self,
+    ):
+        df_target = pd.read_csv(f"{ROOT_PATH}/input/baseline/train_df.csv")
+
+        if RCFG.DEBUG:
+            logger.info(f"DEBUG MODE. Reduce the size of the dataset: {RCFG.DEBUG_SIZE}.")
+            df_target = df_target.sample(RCFG.DEBUG_SIZE, random_state=42).reset_index(drop=True)
+
         logger.info("Create LLM input for llmreranker.")
         if not RCFG.SUBMIT:
             df_target["true"] = df_target.apply(lambda x: x[f"Misconception{x.answer_name}Id"], axis=1)
@@ -218,27 +227,22 @@ class Runner:
             df_target = df_target.dropna(subset=["true"]).reset_index(drop=True)
         df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text(x, self.df_mapping), axis=1)
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
+        df_target.to_parquet("df_target.parquet", index=False)
 
-        logger.info("Save df_target.")
-        df_target.to_parquet(Path(OUTPUT_PATH) / "df_target.parquet", index=False)
-
-        return df_target
-
-    def merge_ranking(self, df_target):
+    def merge_ranking(
+        self,
+    ):
+        df_target = pd.read_parquet("df_target.parquet")
         df_target["llm_misconceptionId"] = df_target.apply(lambda x: postprocess_llm_output(x), axis=1)
         df_target, val_score = get_val_score(df_target, target_col="llm_misconceptionId")
         logger.info(f"llm_misconceptionId_score: {val_score}")
-
-        df_target.to_parquet(Path(OUTPUT_PATH) / "df_target.parquet", index=False)
-        df_target.to_parquet("df_target.parquet", index=False)
 
         df_target["merged_ranking"] = df_target.apply(lambda x: create_merge_ranking_columns(x), axis=1)
         df_target, val_score = get_val_score(df_target, target_col="merged_ranking")
         logger.info(f"merged_ranking_score: {val_score}")
 
         df_target.to_parquet(Path(OUTPUT_PATH) / "df_target.parquet", index=False)
-
-        return df_target
+        self._update_sheet()
 
     def create_submission_file(self, df_target):
         sub = []
