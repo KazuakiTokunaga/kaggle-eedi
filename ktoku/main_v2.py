@@ -2,6 +2,7 @@
 
 import os
 import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +10,7 @@ import pandas as pd
 import torch
 from eedi_score import apk
 from transformers import AutoTokenizer
-from utils import Logger, WriteSheet, set_random_seed
+from utils import Logger, WriteSheet, class_vars_to_dict, create_random_id, set_random_seed
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 # os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -19,7 +20,7 @@ class RCFG:
     """実行に関連する設定"""
 
     SUBMIT = False
-    FILE_NAME = ""  # __file__.split("/")[-1]
+    FILE_NAME = __file__.split("/")[-1]
     RUN_NAME = "test2"
     DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
     DEBUG = False
@@ -29,8 +30,11 @@ class RCFG:
     MODEL_LLM_PATH = "Qwen/Qwen2.5-3B-Instruct"
     DROP_NA = False
     SAVE_TO_SHEET = True
-    SHEET_KEY = "1D-8FAIA4mj7LxaUkiQb5L1dS_aZ2pdSB2uK8Hd_DTfI"
+    SHEET_KEY = "1LTgeCmbwwbF3bdt6x2J00GtpEEG1ArI3xr52IXZZmtQ"
     SHEET_NAME = "cv_ktoku"
+
+
+RCFG.RUN_NAME = create_random_id()
 
 
 def preprocess_text(x, ver="v1"):
@@ -64,12 +68,12 @@ def get_val_score(df_target, target_col="MisconceptionId", k=25):
     return df_target, val_score
 
 
-def create_retrieval_text(row, mapping, k=25):
+def create_retrieval_text(row, mapping, k=10):
     misconceptions_ids = list(map(int, row.MisconceptionId.split()))
     misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
 
     res_text = ""
-    for i, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text)):
+    for i, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
         res_text += f"{id}. {text}\n"
         if i == k - 1:
             break
@@ -83,7 +87,7 @@ def apply_template(row, tokenizer):
     Incorrect Answer: {IncorrectAnswer}
 
     You are a Mathematics teacher. Your task is to reason and identify the misconception behind the Incorrect Answer with the Question.
-    From the options below, please select the ten that you consider most appropriate, in order of preference.
+    From the options below, please select the three that you consider most appropriate, in order of preference.
     Answer by listing the option numbers in a comma-separated format. No additional output is required.
 
     Options:
@@ -116,7 +120,7 @@ def postprocess_llm_output(row):
     try:
         res = x.split("\n")[0].replace(",", " ")
         res_lst = list(map(int, res.split()))
-        assert len(res_lst) == 10
+        assert len(res_lst) == 3
     except:  # noqa
         res = " ".join(row["MisconceptionId"].split()[:10])
     return res
@@ -139,7 +143,7 @@ def merge_ranking(r1, r2, w1=0.5, w2=0.5):
     return refined_ranking
 
 
-def create_merge_ranking_columns(row, w1=0.5, w2=0.5):
+def create_merge_ranking_columns(row, w1=0.2, w2=0.8):
     r1 = list(map(int, row["MisconceptionId"].split()))
     r2 = list(map(int, row["llm_misconceptionId"].split()))
     refined_ranking = merge_ranking(r1, r2, w1=w1, w2=w2)
@@ -166,6 +170,10 @@ class Runner:
         global logger
         logger = Logger(log_path=OUTPUT_PATH, filename_suffix=RCFG.RUN_NAME)
         logger.info(f"Initializing Runner.　Run Name: {RCFG.RUN_NAME}")
+        start_dt_jst = str(datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M:%S"))
+        self.info = {"start_dt_jst": start_dt_jst}
+        self.info["llm_ranking_score"] = 0
+        self.info["merged_ranking_score"] = 0
 
         logger.info(f"commit_hash: {commit_hash}")
         RCFG.COMMIT_HASH = commit_hash
@@ -239,3 +247,25 @@ class Runner:
         submission_df = pd.DataFrame(sub)
         submission_df.to_csv("submission.csv", index=False)
         logger.info("Submission file created successfully!")
+
+    def _update_sheet(
+        self,
+    ):
+        if not RCFG.SAVE_TO_SHEET:
+            return None
+
+        logger.info("Update info to google sheet.")
+        write_dt_jst = str(datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M:%S"))
+
+        data = [
+            RCFG.RUN_NAME,
+            self.info["start_dt_jst"],
+            write_dt_jst,
+            RCFG.COMMIT_HASH,
+            RCFG.FILE_NAME,
+            class_vars_to_dict(RCFG),
+            self.info["llm_ranking_score"],
+            self.info["merged_ranking_score"],
+        ]
+
+        self.sheet.update(data)

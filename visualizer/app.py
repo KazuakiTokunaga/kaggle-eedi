@@ -18,6 +18,7 @@ def plot_answer(
     alphabet: str,
     is_correct_answer: bool,
     misconception_mapping: dict[int, str],
+    model_prediction: str,
 ) -> None:
     if misconception_id is not None:
         misconception_id = int(misconception_id)
@@ -30,10 +31,12 @@ def plot_answer(
             st.write(f"{alphabet} (Correct Answer)")
             st.success(f"Answer: {replace_latex(answer)}")
             st.success(f"Misconception: {misconception_name} (id={misconception_id})")
+            st.write(f"Model Prediction: {model_prediction}")
         else:
             st.write(alphabet)
             st.error(f"Answer: {replace_latex(answer)}")
             st.error(f"Misconception: {misconception_name} (id={misconception_id})")
+            st.write(f"Model Prediction: {model_prediction}")
 
 
 def main() -> None:
@@ -41,25 +44,9 @@ def main() -> None:
     st.title("Eedi visualizer")
 
     df = pl.read_csv(INPUT_DIR / "train.csv")
+    df_answer = pl.read_csv(INPUT_DIR / "answer.csv")
     misconception_mapping = pl.read_csv(INPUT_DIR / "misconception_mapping.csv")
-    misconception_mapping_dict = dict(zip(misconception_mapping["MisconceptionId"].to_list(), misconception_mapping["MisconceptionName"].to_list()))
-
-    st.markdown("## Question")
-    col1, _, _, _ = st.columns(4)
-    with col1:
-        id = st.number_input(label="QuestionId", min_value=0, max_value=df["QuestionId"].max())
-    _data = df[id].to_dict(as_series=False)
-    data = {k: v[0] for k, v in _data.items()}
-
-    st.info(f"ConstructName: {data['ConstructName']}")
-    st.info(f"SubjectName: {data['SubjectName']}")
-    st.info(f"QuestionText: {replace_latex(data['QuestionText'])}")
-
-    col1, col2, col3, col4 = st.columns(4)
-    plot_answer(col1, data["AnswerAText"], data["MisconceptionAId"], "A", data["CorrectAnswer"] == "A", misconception_mapping_dict)
-    plot_answer(col2, data["AnswerBText"], data["MisconceptionBId"], "B", data["CorrectAnswer"] == "B", misconception_mapping_dict)
-    plot_answer(col3, data["AnswerCText"], data["MisconceptionCId"], "C", data["CorrectAnswer"] == "C", misconception_mapping_dict)
-    plot_answer(col4, data["AnswerDText"], data["MisconceptionDId"], "D", data["CorrectAnswer"] == "D", misconception_mapping_dict)
+    misconception_mapping_dict = dict(zip(misconception_mapping["MisconceptionId"].to_list(), misconception_mapping["MisconceptionName"].to_list(), strict=False))
 
     st.markdown("## Question Search")
     col1, col2, col3, _ = st.columns(4)
@@ -82,6 +69,34 @@ def main() -> None:
         },
         height=600,
     )
+
+    st.markdown("## Question")
+    col1, col2, _, _ = st.columns(4)
+    with col1:
+        id = st.number_input(label="QuestionId", min_value=0, max_value=df["QuestionId"].max())
+    with col2:
+        prediction_column = st.text_input(label="Prediction Column", value="MisconceptionId")
+    _data = df[id].to_dict(as_series=False)
+    data = {k: v[0] for k, v in _data.items()}
+
+    pred_dict = {}
+    for res in ["A", "B", "C", "D"]:
+        target = df_answer.filter(pl.col("QuestionId") == id).filter(pl.col("answer_name") == res)
+        try:
+            tmp = target[prediction_column].to_list()[0].split()[:25]
+            pred_dict[res] = ", ".join(tmp)
+        except:  # noqa
+            pred_dict[res] = ""
+
+    st.info(f"ConstructName: {data['ConstructName']}")
+    st.info(f"SubjectName: {data['SubjectName']}")
+    st.info(f"QuestionText: {replace_latex(data['QuestionText'])}")
+
+    col1, col2, col3, col4 = st.columns(4)
+    plot_answer(col1, data["AnswerAText"], data["MisconceptionAId"], "A", data["CorrectAnswer"] == "A", misconception_mapping_dict, pred_dict["A"])
+    plot_answer(col2, data["AnswerBText"], data["MisconceptionBId"], "B", data["CorrectAnswer"] == "B", misconception_mapping_dict, pred_dict["B"])
+    plot_answer(col3, data["AnswerCText"], data["MisconceptionCId"], "C", data["CorrectAnswer"] == "C", misconception_mapping_dict, pred_dict["C"])
+    plot_answer(col4, data["AnswerDText"], data["MisconceptionDId"], "D", data["CorrectAnswer"] == "D", misconception_mapping_dict, pred_dict["D"])
 
     st.markdown("## Misconception Mapping")
     col1, col2, _, _ = st.columns(4)

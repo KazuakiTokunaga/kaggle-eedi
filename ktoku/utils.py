@@ -135,7 +135,5 @@ def to_device(tensors: tp.Union[tp.Tuple[torch.Tensor], tp.Dict[str, torch.Tenso
 
 
 def create_random_id(length=7):
-    # randomのseedをリセットしてください
     random.seed()
-    m = str(datetime.datetime.now().microsecond)
-    return "".join(random.choices("abcdefghijklmnopqrstuvwxyz", k=length)) + m
+    return "".join(random.choices("abcdefghijklmnopqrstuvwxyz", k=length))
