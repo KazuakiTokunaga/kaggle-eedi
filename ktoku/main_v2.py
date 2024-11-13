@@ -120,7 +120,7 @@ def postprocess_llm_output(row):
     try:
         res = x.split("\n")[0].replace(",", " ")
         res_lst = list(map(int, res.split()))
-        assert len(res_lst) == 3
+        assert len(res_lst) == 10
     except:  # noqa
         res = " ".join(row["MisconceptionId"].split()[:10])
     return res
