@@ -246,6 +246,7 @@ class Runner:
         logger.info(f"merged_ranking_score: {val_score}")
         self.info["scores"].append(val_score)
 
+        df_target.to_parquet("df_target.parquet", index=False)
         df_target.to_parquet(Path(OUTPUT_PATH) / "df_target.parquet", index=False)
         self._update_sheet()
 
