@@ -174,7 +174,6 @@ class Runner:
         self.info = {"start_dt_jst": start_dt_jst}
         self.info["llm_ranking_score"] = 0
         self.info["merged_ranking_score"] = 0
-        self._update_sheet()
 
         logger.info(f"commit_hash: {commit_hash}")
         RCFG.COMMIT_HASH = commit_hash
@@ -188,6 +187,7 @@ class Runner:
             sheet_json_key = ROOT_PATH + "/input/ktokunagautils/ktokunaga-4094cf694f5c.json"
             logger.info("Initializing Google Sheet.")
             self.sheet = WriteSheet(sheet_json_key=sheet_json_key, sheet_key=RCFG.SHEET_KEY, sheet_name=RCFG.SHEET_NAME)
+            self._update_sheet()
 
     def load_dataset(
         self,
