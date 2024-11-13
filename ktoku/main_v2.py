@@ -274,7 +274,7 @@ class Runner:
             RCFG.COMMIT_HASH,
             RCFG.FILE_NAME,
             class_vars_to_dict(RCFG),
-            *self.info["llm_ranking_score"],
+            *self.info["scores"],
         ]
 
         self.sheet.update(data)
