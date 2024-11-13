@@ -63,8 +63,8 @@ def get_val_score(df_target, target_col="MisconceptionId", k=25):
             apk_score = apk(actual, pred, k)
             apks.append(apk_score)
 
-    df_target["apk"] = apks
-    val_score = df_target["apk"].mean()
+    df_target[f"apk_{target_col}"] = apks
+    val_score = df_target[f"apk_{target_col}"].mean()
     return df_target, val_score
 
 
@@ -172,8 +172,7 @@ class Runner:
         logger.info(f"Initializing Runner.　Run Name: {RCFG.RUN_NAME}")
         start_dt_jst = str(datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M:%S"))
         self.info = {"start_dt_jst": start_dt_jst}
-        self.info["llm_ranking_score"] = 0
-        self.info["merged_ranking_score"] = 0
+        self.info["scores"] = []
 
         logger.info(f"commit_hash: {commit_hash}")
         RCFG.COMMIT_HASH = commit_hash
@@ -233,13 +232,19 @@ class Runner:
         self,
     ):
         df_target = pd.read_parquet("df_target.parquet")
+        df_target, val_score = get_val_score(df_target, target_col="MisconceptionId")
+        logger.info(f"MisconceptionId_score: {val_score}")
+        self.info["scores"].append(val_score)
+
         df_target["llm_misconceptionId"] = df_target.apply(lambda x: postprocess_llm_output(x), axis=1)
         df_target, val_score = get_val_score(df_target, target_col="llm_misconceptionId")
         logger.info(f"llm_misconceptionId_score: {val_score}")
+        self.info["scores"].append(val_score)
 
         df_target["merged_ranking"] = df_target.apply(lambda x: create_merge_ranking_columns(x), axis=1)
         df_target, val_score = get_val_score(df_target, target_col="merged_ranking")
         logger.info(f"merged_ranking_score: {val_score}")
+        self.info["scores"].append(val_score)
 
         df_target.to_parquet(Path(OUTPUT_PATH) / "df_target.parquet", index=False)
         self._update_sheet()
@@ -268,8 +273,7 @@ class Runner:
             RCFG.COMMIT_HASH,
             RCFG.FILE_NAME,
             class_vars_to_dict(RCFG),
-            self.info["llm_ranking_score"],
-            self.info["merged_ranking_score"],
+            *self.info["llm_ranking_score"],
         ]
 
         self.sheet.update(data)
