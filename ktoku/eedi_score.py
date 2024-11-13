@@ -66,4 +66,4 @@ def mapk(actual, predicted, k=25):
             The mean average precision at k over the input lists
     """
 
-    return np.mean([apk(a, p, k) for a, p in zip(actual, predicted)])
+    return np.mean([apk(a, p, k) for a, p in zip(actual, predicted, strict=False)])

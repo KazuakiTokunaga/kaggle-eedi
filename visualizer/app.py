@@ -44,7 +44,7 @@ def main() -> None:
     st.title("Eedi visualizer")
 
     df = pl.read_csv(INPUT_DIR / "train.csv")
-    df_answer = pl.read_csv(INPUT_DIR / "answer.csv")
+    df_answer = pl.read_parquet(INPUT_DIR / "df_target.parquet")
     misconception_mapping = pl.read_csv(INPUT_DIR / "misconception_mapping.csv")
     misconception_mapping_dict = dict(zip(misconception_mapping["MisconceptionId"].to_list(), misconception_mapping["MisconceptionName"].to_list(), strict=False))
 

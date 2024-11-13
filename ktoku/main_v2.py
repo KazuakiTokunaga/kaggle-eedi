@@ -68,7 +68,7 @@ def get_val_score(df_target, target_col="MisconceptionId", k=25):
     return df_target, val_score
 
 
-def create_retrieval_text(row, mapping, k=10):
+def create_retrieval_text(row, mapping, k=25):
     misconceptions_ids = list(map(int, row.MisconceptionId.split()))
     misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
 
@@ -87,7 +87,7 @@ def apply_template(row, tokenizer):
     Incorrect Answer: {IncorrectAnswer}
 
     You are a Mathematics teacher. Your task is to reason and identify the misconception behind the Incorrect Answer with the Question.
-    From the options below, please select the three that you consider most appropriate, in order of preference.
+    From the options below, please select the ten that you consider most appropriate, in order of preference.
     Answer by listing the option numbers in a comma-separated format. No additional output is required.
 
     Options:
@@ -228,6 +228,8 @@ class Runner:
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
         df_target.to_parquet("df_target.parquet", index=False)
 
+        logger.info("Prepare LLM reranker done.")
+
     def merge_ranking(
         self,
     ):
@@ -253,7 +255,7 @@ class Runner:
     def create_submission_file(self, df_target):
         sub = []
         for _, row in df_target.iterrows():
-            sub.append({"QuestionId_Answer": f"{row['QuestionId']}_{row['answer_name']}", "MisconceptionId": row["MisconceptionId"]})
+            sub.append({"QuestionId_Answer": f"{row['QuestionId']}_{row['answer_name']}", "MisconceptionId": row["merged_ranking"]})
         submission_df = pd.DataFrame(sub)
         submission_df.to_csv("submission.csv", index=False)
         logger.info("Submission file created successfully!")

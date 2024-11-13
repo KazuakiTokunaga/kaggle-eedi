@@ -3,3 +3,5 @@
 .venv/
 pyproject.toml
 __pycache__/
+*.csv
+*.parquet
