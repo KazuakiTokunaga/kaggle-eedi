@@ -68,7 +68,7 @@ def get_val_score(df_target, target_col="MisconceptionId", k=25):
     return df_target, val_score
 
 
-def create_retrieval_text(row, mapping, k=25):
+def create_retrieval_text(row, mapping, k=50):
     misconceptions_ids = list(map(int, row.MisconceptionId.split()))
     misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
 
