@@ -29,6 +29,7 @@ class RCFG:
     COMMIT_HASH = ""
     USE_FOLD = []  # 空のときは全fold、0-4で指定したfoldのみを使う
     MODEL_LLM_PATH = "Qwen/Qwen2.5-3B-Instruct"
+    AWQ = ""
     DROP_NA = False
     SAVE_TO_SHEET = True
     SHEET_KEY = "1LTgeCmbwwbF3bdt6x2J00GtpEEG1ArI3xr52IXZZmtQ"
@@ -211,6 +212,11 @@ class Runner:
             from kaggle_secrets import UserSecretsClient
 
             self.user_secrets = UserSecretsClient()
+
+        # MODEL_LLM_PATHがQwen2.5-32B-Instruct-AWQを部分文字列で含むかどうか
+        if "Qwen2.5-32B-Instruct-AWQ" in RCFG.MODEL_LLM_PATH:
+            logger.info("Use Large Model with AWQ.")
+            RCFG.AWQ = "awq"
 
         if RCFG.SAVE_TO_SHEET:
             sheet_json_key = ROOT_PATH + "/input/ktokunagautils/ktokunaga-4094cf694f5c.json"

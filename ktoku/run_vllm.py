@@ -7,6 +7,9 @@ import vllm
 def main(filename, model_path, quantization=None):
     df = pd.read_parquet(filename)
 
+    if quantization != "awq":
+        quantization = None
+
     llm = vllm.LLM(
         model_path,
         quantization=quantization,
