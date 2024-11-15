@@ -144,9 +144,6 @@ def apply_template(row, tokenizer, number="ten"):
     return text
 
 
-EXCEPTION_COUNT = 0
-
-
 def postprocess_llm_output(row, length=10):
     x = row["fullLLMText"]
     try:
@@ -192,7 +189,8 @@ def create_merge_ranking_columns(row, w1=0.2, w2=0.8):
 
 class Runner:
     def __init__(self, env="colab", commit_hash=""):
-        global ENV, ROOT_PATH, OUTPUT_PATH
+        global ENV, ROOT_PATH, OUTPUT_PATH, EXCPTION_COUNT
+        EXCPTION_COUNT = 0
         ENV = env
         ROOT_PATH = "/content/drive/MyDrive/eedi" if ENV == "colab" else "/kaggle"
         if ENV == "colab":
