@@ -146,14 +146,15 @@ def apply_template(row, tokenizer, number="ten"):
 
 def postprocess_llm_output(row, length=10):
     x = row["fullLLMText"]
+    exception_occurred = 0
     try:
         res = x.split("\n")[0].replace(",", " ")
         res_lst = list(map(int, res.split()))
         assert len(res_lst) == length
     except:  # noqa
         res = " ".join(row["MisconceptionId"].split()[:length])
-        EXCEPTION_COUNT += 1  # noqa
-    return res
+        exception_occurred += 1
+    return res, exception_occurred
 
 
 def merge_ranking(r1, r2, w1=0.5, w2=0.5):
@@ -273,9 +274,8 @@ class Runner:
     ):
         df_target = pd.read_parquet("df_target.parquet")
         logger.info("Create llm_id_v1 with prostprocess.")
-        df_target["llm_id_v1"] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
-        logger.info(f"EXCEPTION_COUNT: {EXCEPTION_COUNT}")  # noqa
-        EXCEPTION_COUNT = 0  # noqa
+        df_target[["llm_id_v1", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
+        logger.info(f"EXCEPTION_COUNT: {df_target["exception_flag"].sum()}")
 
         logger.info("Create LLM input for llmreranker_v2.")
         df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text_v2(x, self.df_mapping), axis=1)
@@ -289,9 +289,8 @@ class Runner:
     ):
         df_target = pd.read_parquet("df_target.parquet")
         logger.info("Create llm_id_v2 with prostprocess.")
-        df_target["llm_id_v2"] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
-        logger.info(f"EXCEPTION_COUNT: {EXCEPTION_COUNT}")  # noqa
-        EXCEPTION_COUNT = 0  # noqa
+        df_target[["llm_id_v2", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
+        logger.info(f"EXCEPTION_COUNT: {df_target["exception_flag"].sum()}")
 
         logger.info("Create LLM input for llmreranker_v3.")
         df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text_v3(x, self.df_mapping), axis=1)
@@ -309,9 +308,8 @@ class Runner:
         self.info["scores"].append(val_score)
 
         logger.info("Create llm_id_v3 with prostprocess.")
-        df_target["llm_id_v3"] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1)
-        logger.info(f"EXCEPTION_COUNT: {EXCEPTION_COUNT}")  # noqa
-        EXCEPTION_COUNT = 0  # noqa
+        df_target[["llm_id_v3", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1)
+        logger.info(f"EXCEPTION_COUNT: {df_target["exception_flag"].sum()}")
         self.info["scores"].append(0)
 
         df_target["merged_ranking"] = df_target.apply(lambda x: create_merge_ranking_columns(x), axis=1)
