@@ -189,8 +189,8 @@ def create_merge_ranking_columns(row, w1=0.2, w2=0.8):
 
 class Runner:
     def __init__(self, env="colab", commit_hash=""):
-        global ENV, ROOT_PATH, OUTPUT_PATH, EXCPTION_COUNT
-        EXCPTION_COUNT = 0
+        global ENV, ROOT_PATH, OUTPUT_PATH, EXCEPTION_COUNT
+        EXCEPTION_COUNT = 0
         ENV = env
         ROOT_PATH = "/content/drive/MyDrive/eedi" if ENV == "colab" else "/kaggle"
         if ENV == "colab":
