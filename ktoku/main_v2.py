@@ -190,8 +190,7 @@ def create_merge_ranking_columns(row, w1=0.2, w2=0.8):
 
 class Runner:
     def __init__(self, env="colab", commit_hash=""):
-        global ENV, ROOT_PATH, OUTPUT_PATH, EXCEPTION_COUNT
-        EXCEPTION_COUNT = 0
+        global ENV, ROOT_PATH, OUTPUT_PATH
         ENV = env
         ROOT_PATH = "/content/drive/MyDrive/eedi" if ENV == "colab" else "/kaggle"
         if ENV == "colab":
@@ -274,7 +273,7 @@ class Runner:
     ):
         df_target = pd.read_parquet("df_target.parquet")
         logger.info("Create llm_id_v1 with prostprocess.")
-        df_target[["llm_id_v1", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
+        df_target[["llm_id_v1", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1, result_type="expand")
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
 
         logger.info("Create LLM input for llmreranker_v2.")
@@ -289,7 +288,7 @@ class Runner:
     ):
         df_target = pd.read_parquet("df_target.parquet")
         logger.info("Create llm_id_v2 with prostprocess.")
-        df_target[["llm_id_v2", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
+        df_target[["llm_id_v2", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1, result_type="expand")
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
 
         logger.info("Create LLM input for llmreranker_v3.")
@@ -308,7 +307,7 @@ class Runner:
         self.info["scores"].append(val_score)
 
         logger.info("Create llm_id_v3 with prostprocess.")
-        df_target[["llm_id_v3", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1)
+        df_target[["llm_id_v3", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1, result_type="expand")
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
         self.info["scores"].append(0)
 
