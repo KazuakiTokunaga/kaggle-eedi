@@ -29,7 +29,7 @@ class RCFG:
     COMMIT_HASH = ""
     USE_FOLD = []  # 空のときは全fold、0-4で指定したfoldのみを使う
     MODEL_LLM_PATH = "Qwen/Qwen2.5-3B-Instruct"
-    AWQ = ""
+    AWQ = "none"
     DROP_NA = False
     SAVE_TO_SHEET = True
     SHEET_KEY = "1LTgeCmbwwbF3bdt6x2J00GtpEEG1ArI3xr52IXZZmtQ"
