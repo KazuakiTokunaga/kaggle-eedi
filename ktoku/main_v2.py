@@ -1,6 +1,7 @@
 # https://www.kaggle.com/code/takanashihumbert/eedi-qwen-2-5-32b-awq-two-time-retrieval
 
 import os
+import random
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -68,26 +69,52 @@ def get_val_score(df_target, target_col="MisconceptionId", k=25):
     return df_target, val_score
 
 
-def create_retrieval_text(row, mapping, k=50):
+def create_retrieval_text(row, mapping):
     misconceptions_ids = list(map(int, row.MisconceptionId.split()))
+    misconceptions_ids = list(set(misconceptions_ids[:3] + misconceptions_ids[25:50]))
+    random.shuffle(misconceptions_ids)
     misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
 
     res_text = ""
-    for i, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
+    for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
         res_text += f"{id}. {text}\n"
-        if i == k - 1:
-            break
     return res_text
 
 
-def apply_template(row, tokenizer):
+def create_retrieval_text_v2(row, mapping):
+    misconceptions_ids = list(map(int, row.MisconceptionId.split()))
+    llm_ids = list(map(int, row.llm_id_v1.split()))
+    misconceptions_ids = list(set(misconceptions_ids[10:25] + llm_ids[:10]))
+    random.shuffle(misconceptions_ids)
+    misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
+
+    res_text = ""
+    for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
+        res_text += f"{id}. {text}\n"
+    return res_text
+
+
+def create_retrieval_text_v3(row, mapping):
+    misconceptions_ids = list(map(int, row.MisconceptionId.split()))
+    llm_ids = list(map(int, row.llm_id_v2.split()))
+    misconceptions_ids = list(dict.fromkeys(misconceptions_ids[:10] + llm_ids[:5]))
+    random.shuffle(misconceptions_ids)
+    misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
+
+    res_text = ""
+    for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
+        res_text += f"{id}. {text}\n"
+    return res_text
+
+
+def apply_template(row, tokenizer, number="ten"):
     PROMPT = """Here is a question about {ConstructName}({SubjectName}).
     Question: {Question}
     Correct Answer: {CorrectAnswer}
     Incorrect Answer: {IncorrectAnswer}
 
     You are a Mathematics teacher. Your task is to reason and identify the misconception behind the Incorrect Answer with the Question.
-    From the options below, please select the ten that you consider most appropriate, in order of preference.
+    From the options below, please select the {Number} that you consider most appropriate, in order of preference.
     Answer by listing the option numbers in a comma-separated format. No additional output is required.
 
     Options:
@@ -105,6 +132,7 @@ def apply_template(row, tokenizer):
                     Question=row["QuestionText"],
                     IncorrectAnswer=row[f"Answer{row.answer_name}Text"],
                     CorrectAnswer=row[f"Answer{row.CorrectAnswer}Text"],
+                    Number=number,
                     Retrival=row.retrieval_text,
                 ),
                 ver="v2",
@@ -115,14 +143,14 @@ def apply_template(row, tokenizer):
     return text
 
 
-def postprocess_llm_output(row):
+def postprocess_llm_output(row, length=10):
     x = row["fullLLMText"]
     try:
         res = x.split("\n")[0].replace(",", " ")
         res_lst = list(map(int, res.split()))
-        assert len(res_lst) == 10
+        assert len(res_lst) == length
     except:  # noqa
-        res = " ".join(row["MisconceptionId"].split()[:10])
+        res = " ".join(row["MisconceptionId"].split()[:length])
     return res
 
 
@@ -144,9 +172,11 @@ def merge_ranking(r1, r2, w1=0.5, w2=0.5):
 
 
 def create_merge_ranking_columns(row, w1=0.2, w2=0.8):
-    r1 = list(map(int, row["MisconceptionId"].split()))
-    r2 = list(map(int, row["llm_misconceptionId"].split()))
-    refined_ranking = merge_ranking(r1, r2, w1=w1, w2=w2)
+    r0 = list(map(int, row["MisconceptionId"].split()))
+    r2 = list(map(int, row["llm_id_v2"].split()))
+    r3 = list(map(int, row["llm_id_v3"].split()))
+
+    refined_ranking = list(dict.fromkeys(r3 + r0[:10] + r2[:10] + r0[10:25]))
     return " ".join(map(str, refined_ranking))
 
 
@@ -230,6 +260,34 @@ class Runner:
 
         logger.info("Prepare LLM reranker done.")
 
+    def prepare_llm_reranker_v2(
+        self,
+    ):
+        df_target = pd.read_csv(f"{ROOT_PATH}/input/baseline/train_df.csv")
+        logger.info("Create llm_id_v1 with prostprocess.")
+        df_target["llm_id_v1"] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
+
+        logger.info("Create LLM input for llmreranker_v2.")
+        df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text_v2(x, self.df_mapping), axis=1)
+        df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
+        df_target.to_parquet("df_target.parquet", index=False)
+
+        logger.info("Prepare LLM reranker_v2 done.")
+
+    def prepare_llm_reranker_v3(
+        self,
+    ):
+        df_target = pd.read_csv(f"{ROOT_PATH}/input/baseline/train_df.csv")
+        logger.info("Create llm_id_v2 with prostprocess.")
+        df_target["llm_id_v2"] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
+
+        logger.info("Create LLM input for llmreranker_v3.")
+        df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text_v3(x, self.df_mapping), axis=1)
+        df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer, "five"), axis=1)
+        df_target.to_parquet("df_target.parquet", index=False)
+
+        logger.info("Prepare LLM reranker_v3 done.")
+
     def merge_ranking(
         self,
     ):
@@ -238,10 +296,8 @@ class Runner:
         logger.info(f"MisconceptionId_score: {val_score}")
         self.info["scores"].append(val_score)
 
-        df_target["llm_misconceptionId"] = df_target.apply(lambda x: postprocess_llm_output(x), axis=1)
-        df_target, val_score = get_val_score(df_target, target_col="llm_misconceptionId")
-        logger.info(f"llm_misconceptionId_score: {val_score}")
-        self.info["scores"].append(val_score)
+        df_target["llm_id_v3"] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1)
+        self.info["scores"].append(0)
 
         df_target["merged_ranking"] = df_target.apply(lambda x: create_merge_ranking_columns(x), axis=1)
         df_target, val_score = get_val_score(df_target, target_col="merged_ranking")
