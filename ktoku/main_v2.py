@@ -273,7 +273,7 @@ class Runner:
     def prepare_llm_reranker_v2(
         self,
     ):
-        df_target = pd.read_csv(f"{ROOT_PATH}/input/baseline/train_df.csv")
+        df_target = pd.read_csv("df_target.parquet")
         logger.info("Create llm_id_v1 with prostprocess.")
         df_target["llm_id_v1"] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
         logger.info(f"EXCEPTION_COUNT: {EXCEPTION_COUNT}")  # noqa
@@ -289,7 +289,7 @@ class Runner:
     def prepare_llm_reranker_v3(
         self,
     ):
-        df_target = pd.read_csv(f"{ROOT_PATH}/input/baseline/train_df.csv")
+        df_target = pd.read_csv("df_target.parquet")
         logger.info("Create llm_id_v2 with prostprocess.")
         df_target["llm_id_v2"] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1)
         logger.info(f"EXCEPTION_COUNT: {EXCEPTION_COUNT}")  # noqa
