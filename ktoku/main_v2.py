@@ -179,7 +179,7 @@ def create_merge_ranking_columns(row, w1=0.2, w2=0.8):
     r2 = list(map(int, row["llm_id_v2"].split()))
     r3 = list(map(int, row["llm_id_v3"].split()))
 
-    refined_ranking = list(dict.fromkeys(r3 + r0[:10] + r2[:10] + r0[10:25]))
+    refined_ranking = list(dict.fromkeys(r3 + r0[:10] + r2 + r0[10:30]))[:25]
     return " ".join(map(str, refined_ranking))
 
 
