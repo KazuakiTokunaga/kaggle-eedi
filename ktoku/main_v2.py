@@ -74,12 +74,18 @@ def create_retrieval_text(row, mapping):
     misconceptions_ids = list(map(int, row.MisconceptionId.split()))
     misconceptions_ids = list(set(misconceptions_ids[:3] + misconceptions_ids[25:50]))
     random.shuffle(misconceptions_ids)
-    misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
+
+    mapping_dict = mapping.set_index("MisconceptionId")["MisconceptionName"].to_dict()
+    misconceptions_text = [mapping_dict.get(m, "error") for m in misconceptions_ids]
 
     res_text = ""
+    notfound_occurred = 0
     for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
+        if text == "error":
+            notfound_occurred += 1
+            continue
         res_text += f"{id}. {text}\n"
-    return res_text
+    return res_text, notfound_occurred
 
 
 def create_retrieval_text_v2(row, mapping):
@@ -87,12 +93,18 @@ def create_retrieval_text_v2(row, mapping):
     llm_ids = list(map(int, row.llm_id_v1.split()))
     misconceptions_ids = list(set(misconceptions_ids[10:25] + llm_ids[:10]))
     random.shuffle(misconceptions_ids)
-    misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
+
+    mapping_dict = mapping.set_index("MisconceptionId")["MisconceptionName"].to_dict()
+    misconceptions_text = [mapping_dict.get(m, "error") for m in misconceptions_ids]
 
     res_text = ""
+    notfound_occurred = 0
     for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
+        if text == "error":
+            notfound_occurred += 1
+            continue
         res_text += f"{id}. {text}\n"
-    return res_text
+    return res_text, notfound_occurred
 
 
 def create_retrieval_text_v3(row, mapping):
@@ -100,12 +112,18 @@ def create_retrieval_text_v3(row, mapping):
     llm_ids = list(map(int, row.llm_id_v2.split()))
     misconceptions_ids = list(dict.fromkeys(misconceptions_ids[:10] + llm_ids[:5]))
     random.shuffle(misconceptions_ids)
-    misconceptions_text = [mapping[mapping.MisconceptionId == m].MisconceptionName.values[0] for m in misconceptions_ids]
+
+    mapping_dict = mapping.set_index("MisconceptionId")["MisconceptionName"].to_dict()
+    misconceptions_text = [mapping_dict.get(m, "error") for m in misconceptions_ids]
 
     res_text = ""
+    notfound_occurred = 0
     for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
+        if text == "error":
+            notfound_occurred += 1
+            continue
         res_text += f"{id}. {text}\n"
-    return res_text
+    return res_text, notfound_occurred
 
 
 def apply_template(row, tokenizer, number="ten"):
@@ -262,7 +280,8 @@ class Runner:
             df_target["true"] = 1
         if RCFG.DROP_NA:
             df_target = df_target.dropna(subset=["true"]).reset_index(drop=True)
-        df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text(x, self.df_mapping), axis=1)
+        df_target[["retrieval_text", "notfound_count"]] = df_target.apply(lambda x: create_retrieval_text(x, self.df_mapping), axis=1, result_type="expand")
+        logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
         df_target.to_parquet("df_target.parquet", index=False)
 
@@ -277,7 +296,9 @@ class Runner:
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
 
         logger.info("Create LLM input for llmreranker_v2.")
-        df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text_v2(x, self.df_mapping), axis=1)
+        df_target[["retrieval_text", "notfound_count"]] = df_target.apply(lambda x: create_retrieval_text_v2(x, self.df_mapping), axis=1, result_type="expand")
+        logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
+
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
         df_target.to_parquet("df_target.parquet", index=False)
 
@@ -292,7 +313,9 @@ class Runner:
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
 
         logger.info("Create LLM input for llmreranker_v3.")
-        df_target["retrieval_text"] = df_target.apply(lambda x: create_retrieval_text_v3(x, self.df_mapping), axis=1)
+        df_target[["retrieval_text", "notfound_count"]] = df_target.apply(lambda x: create_retrieval_text_v3(x, self.df_mapping), axis=1, result_type="expand")
+        logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
+
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer, "five"), axis=1)
         df_target.to_parquet("df_target.parquet", index=False)
 
