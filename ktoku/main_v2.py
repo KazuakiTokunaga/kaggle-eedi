@@ -304,8 +304,8 @@ class Runner:
     ):
         df_target = pd.read_parquet("df_target.parquet")
         logger.info("Create llm_id_v2 with prostprocess.")
-        df_target[["llm_id_v2", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1, result_type="expand")
-        logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
+        # df_target[["llm_id_v2", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1, result_type="expand")
+        # logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
 
         logger.info("Create LLM input for llmreranker_v3.")
         df_target[["retrieval_text", "notfound_count"]] = df_target.apply(lambda x: create_retrieval_text_v3(x, self.mapping_dict), axis=1, result_type="expand")
