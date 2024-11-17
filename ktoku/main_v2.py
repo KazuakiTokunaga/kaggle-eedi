@@ -9,7 +9,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from eedi_score import apk
 from transformers import AutoTokenizer
 from utils import Logger, WriteSheet, class_vars_to_dict, create_random_id, set_random_seed
 
@@ -37,6 +36,24 @@ class RCFG:
 
 
 RCFG.RUN_NAME = create_random_id()
+
+
+def apk(actual, predicted, k=25):
+    if not actual:
+        return 0.0
+    if len(predicted) > k:
+        predicted = predicted[:k]
+    score = 0.0
+    num_hits = 0.0
+    for i, p in enumerate(predicted):
+        if p in actual and p not in predicted[:i]:
+            num_hits += 1.0
+            score += num_hits / (i + 1.0)
+    return score / min(len(actual), k)
+
+
+def mapk(actual, predicted, k=25):
+    return np.mean([apk(a, p, k) for a, p in zip(actual, predicted, strict=False)])
 
 
 def preprocess_text(x, ver="v1"):
@@ -120,6 +137,20 @@ def create_retrieval_text_v3(row, mapping: dict):
     return res_text, notfound_occurred
 
 
+def create_retrieval_text_v4(row, mapping: dict):
+    misconceptions_ids = list(map(int, row.llm_id_v3.split()))
+    misconceptions_text = [mapping.get(m, "error") for m in misconceptions_ids]
+
+    res_text = ""
+    notfound_occurred = 0
+    for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
+        if text == "error":
+            notfound_occurred += 1
+            continue
+        res_text += f"{id}. {text}\n"
+    return res_text, notfound_occurred
+
+
 def apply_template(row, tokenizer, number="ten"):
     PROMPT = """Here is a question about {ConstructName}({SubjectName}).
     Question: {Question}
@@ -146,6 +177,42 @@ def apply_template(row, tokenizer, number="ten"):
                     IncorrectAnswer=row[f"Answer{row.answer_name}Text"],
                     CorrectAnswer=row[f"Answer{row.CorrectAnswer}Text"],
                     Number=number,
+                    Retrival=row.retrieval_text,
+                ),
+                ver="v2",
+            ),
+        }
+    ]
+    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    return text
+
+
+def apply_template_v2(row, tokenizer):
+    PROMPT = """Here is a question about {ConstructName}({SubjectName}).
+    Question: {Question}
+    Correct Answer: {CorrectAnswer}
+    Incorrect Answer: {IncorrectAnswer}
+
+    You are a Mathematics teacher. Your task is to reason and identify the misconception behind the Incorrect Answer with the Question.
+    As potential misconceptions underlying the Inncorrect Aanswer above, the large language model has listed the following five candidates in a likely order.
+    Please review these five candidates in detail and rearrange the order if necessary.
+    Answer by listing the numbers in a comma-separated format. No additional output is required.
+
+    Candidates:
+
+    {Retrival}
+    """
+
+    messages = [
+        {
+            "role": "user",
+            "content": preprocess_text(
+                PROMPT.format(
+                    ConstructName=row["ConstructName"],
+                    SubjectName=row["SubjectName"],
+                    Question=row["QuestionText"],
+                    IncorrectAnswer=row[f"Answer{row.answer_name}Text"],
+                    CorrectAnswer=row[f"Answer{row.CorrectAnswer}Text"],
                     Retrival=row.retrieval_text,
                 ),
                 ver="v2",
@@ -186,12 +253,15 @@ def merge_ranking(r1, r2, w1=0.5, w2=0.5):
     return refined_ranking
 
 
-def create_merge_ranking_columns(row, w1=0.2, w2=0.8):
+def create_merge_ranking_columns(row):
     r0 = list(map(int, row["MisconceptionId"].split()))
     r2 = list(map(int, row["llm_id_v2"].split()))
     r3 = list(map(int, row["llm_id_v3"].split()))
+    r4 = list(map(int, row["llm_id_v4"].split()))
 
-    refined_ranking = list(dict.fromkeys(r3 + r0[:10] + r2 + r0[10:30]))[:25]
+    r34 = merge_ranking(r3, r4, 0.2, 0.8)
+
+    refined_ranking = list(dict.fromkeys(r34 + r0[:10] + r2 + r0[10:30]))[:25]
     return " ".join(map(str, refined_ranking))
 
 
@@ -262,7 +332,10 @@ class Runner:
     def prepare_llm_reranker(
         self,
     ):
-        df_target = pd.read_csv(f"{ROOT_PATH}/input/baseline/train_df.csv")
+        if RCFG.SUBMIT:
+            df_target = pd.read_parquet("df_target.parquet")
+        else:
+            df_target = pd.read_csv(f"{ROOT_PATH}/input/baseline/train_df.csv")
 
         if RCFG.DEBUG:
             logger.info(f"DEBUG MODE. Reduce the size of the dataset: {RCFG.DEBUG_SIZE}.")
@@ -304,8 +377,8 @@ class Runner:
     ):
         df_target = pd.read_parquet("df_target.parquet")
         logger.info("Create llm_id_v2 with prostprocess.")
-        # df_target[["llm_id_v2", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1, result_type="expand")
-        # logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
+        df_target[["llm_id_v2", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1, result_type="expand")
+        logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
 
         logger.info("Create LLM input for llmreranker_v3.")
         df_target[["retrieval_text", "notfound_count"]] = df_target.apply(lambda x: create_retrieval_text_v3(x, self.mapping_dict), axis=1, result_type="expand")
@@ -316,6 +389,23 @@ class Runner:
 
         logger.info("Prepare LLM reranker_v3 done.")
 
+    def prepare_llm_reranker_v4(
+        self,
+    ):
+        df_target = pd.read_parquet("df_target.parquet")
+        logger.info("Create llm_id_v2 with prostprocess.")
+        df_target[["llm_id_v3", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1, result_type="expand")
+        logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
+
+        logger.info("Create LLM input for llmreranker_v3.")
+        df_target[["retrieval_text", "notfound_count"]] = df_target.apply(lambda x: create_retrieval_text_v4(x, self.mapping_dict), axis=1, result_type="expand")
+        logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
+
+        df_target["llm_input"] = df_target.apply(lambda x: apply_template_v2(x, self.tokenizer), axis=1)
+        df_target.to_parquet("df_target.parquet", index=False)
+
+        logger.info("Prepare LLM reranker_v4 done.")
+
     def merge_ranking(
         self,
     ):
@@ -324,8 +414,8 @@ class Runner:
         logger.info(f"MisconceptionId_score: {val_score}")
         self.info["scores"].append(val_score)
 
-        logger.info("Create llm_id_v3 with prostprocess.")
-        df_target[["llm_id_v3", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1, result_type="expand")
+        logger.info("Create llm_id_v4 with prostprocess.")
+        df_target[["llm_id_v4", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1, result_type="expand")
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
         self.info["scores"].append(0)
 
@@ -338,7 +428,10 @@ class Runner:
         df_target.to_parquet(Path(OUTPUT_PATH) / "df_target.parquet", index=False)
         self._update_sheet()
 
-    def create_submission_file(self, df_target):
+    def create_submission_file(
+        self,
+    ):
+        df_target = pd.read_parquet("df_target.parquet")
         sub = []
         for _, row in df_target.iterrows():
             sub.append({"QuestionId_Answer": f"{row['QuestionId']}_{row['answer_name']}", "MisconceptionId": row["merged_ranking"]})
