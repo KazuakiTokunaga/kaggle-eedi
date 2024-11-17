@@ -24,7 +24,7 @@ class RCFG:
     RUN_NAME = "test2"
     DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
     DEBUG = False
-    DEBUG_SIZE = 100
+    DEBUG_SIZE = 30
     COMMIT_HASH = ""
     MODEL_LLM_PATH = "Qwen/Qwen2.5-3B-Instruct"
     AWQ = "none"
