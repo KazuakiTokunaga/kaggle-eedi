@@ -122,6 +122,7 @@ def create_retrieval_text_v2(row, mapping: dict):
 def create_retrieval_text_v3(row, mapping: dict):
     misconceptions_ids = list(map(int, row.MisconceptionId.split()))
     llm_ids = list(map(int, row.llm_id_v2.split()))
+    llm_ids = [m for m in llm_ids if m not in misconceptions_ids]
     misconceptions_ids = list(dict.fromkeys(misconceptions_ids[:10] + llm_ids[:5]))
     # random.shuffle(misconceptions_ids)
     misconceptions_text = [mapping.get(m, "error") for m in misconceptions_ids]
