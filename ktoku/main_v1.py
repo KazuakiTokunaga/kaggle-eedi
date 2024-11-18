@@ -87,8 +87,7 @@ def get_val_score(df_target, target_col="MisconceptionId", k=25):
 
 
 def create_retrieval_text(row, mapping: dict):
-    misconceptions_ids = list(map(int, row.MisconceptionId.split()))
-    misconceptions_ids = list(set(misconceptions_ids[:3] + misconceptions_ids[25:50]))
+    misconceptions_ids = list(map(int, row.MisconceptionId.split()))[:10]
     random.shuffle(misconceptions_ids)
     misconceptions_text = [mapping.get(m, "error") for m in misconceptions_ids]
 
@@ -102,56 +101,7 @@ def create_retrieval_text(row, mapping: dict):
     return res_text, notfound_occurred
 
 
-def create_retrieval_text_v2(row, mapping: dict):
-    misconceptions_ids = list(map(int, row.MisconceptionId.split()))
-    llm_ids = list(map(int, row.llm_id_v1.split()))
-    misconceptions_ids = list(set(misconceptions_ids[10:25] + llm_ids[:10]))
-    random.shuffle(misconceptions_ids)
-    misconceptions_text = [mapping.get(m, "error") for m in misconceptions_ids]
-
-    res_text = ""
-    notfound_occurred = 0
-    for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
-        if text == "error":
-            notfound_occurred += 1
-            continue
-        res_text += f"{id}. {text}\n"
-    return res_text, notfound_occurred
-
-
-def create_retrieval_text_v3(row, mapping: dict):
-    misconceptions_ids = list(map(int, row.MisconceptionId.split()))
-    llm_ids = list(map(int, row.llm_id_v2.split()))
-    llm_ids = [m for m in llm_ids if m not in misconceptions_ids]
-    misconceptions_ids = list(dict.fromkeys(misconceptions_ids[:10] + llm_ids[:5]))
-    # random.shuffle(misconceptions_ids)
-    misconceptions_text = [mapping.get(m, "error") for m in misconceptions_ids]
-
-    res_text = ""
-    notfound_occurred = 0
-    for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
-        if text == "error":
-            notfound_occurred += 1
-            continue
-        res_text += f"{id}. {text}\n"
-    return res_text, notfound_occurred
-
-
-def create_retrieval_text_v4(row, mapping: dict):
-    misconceptions_ids = list(map(int, row.llm_id_v3.split()))
-    misconceptions_text = [mapping.get(m, "error") for m in misconceptions_ids]
-
-    res_text = ""
-    notfound_occurred = 0
-    for _, (id, text) in enumerate(zip(misconceptions_ids, misconceptions_text, strict=False)):
-        if text == "error":
-            notfound_occurred += 1
-            continue
-        res_text += f"{id}. {text}\n"
-    return res_text, notfound_occurred
-
-
-def apply_template(row, tokenizer, number="ten"):
+def apply_template(row, tokenizer, number="three"):
     PROMPT = """Here is a question about {ConstructName}({SubjectName}).
     Question: {Question}
     Correct Answer: {CorrectAnswer}
@@ -187,43 +137,7 @@ def apply_template(row, tokenizer, number="ten"):
     return text
 
 
-def apply_template_v2(row, tokenizer):
-    PROMPT = """Here is a question about {ConstructName}({SubjectName}).
-    Question: {Question}
-    Correct Answer: {CorrectAnswer}
-    Incorrect Answer: {IncorrectAnswer}
-
-    You are a Mathematics teacher. Your task is to reason and identify the misconception behind the Incorrect Answer with the Question.
-    As potential misconceptions underlying the Inncorrect Aanswer above, the large language model has listed the following five candidates in a likely order.
-    Please review these five candidates in detail and rearrange the order if necessary.
-    Answer by listing the numbers in a comma-separated format. No additional output is required.
-
-    Candidates:
-
-    {Retrival}
-    """
-
-    messages = [
-        {
-            "role": "user",
-            "content": preprocess_text(
-                PROMPT.format(
-                    ConstructName=row["ConstructName"],
-                    SubjectName=row["SubjectName"],
-                    Question=row["QuestionText"],
-                    IncorrectAnswer=row[f"Answer{row.answer_name}Text"],
-                    CorrectAnswer=row[f"Answer{row.CorrectAnswer}Text"],
-                    Retrival=row.retrieval_text,
-                ),
-                ver="v2",
-            ),
-        }
-    ]
-    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    return text
-
-
-def postprocess_llm_output(row, length=10):
+def postprocess_llm_output(row, length=3):
     x = row["fullLLMText"]
     exception_occurred = 0
     try:
@@ -253,15 +167,10 @@ def merge_ranking(r1, r2, w1=0.5, w2=0.5):
     return refined_ranking
 
 
-def create_merge_ranking_columns(row):
-    r0 = list(map(int, row["MisconceptionId"].split()))
-    r2 = list(map(int, row["llm_id_v2"].split()))
-    r3 = list(map(int, row["llm_id_v3"].split()))
-    r4 = list(map(int, row["llm_id_v4"].split()))
-
-    r34 = merge_ranking(r3, r4, 0.2, 0.8)
-
-    refined_ranking = list(dict.fromkeys(r34 + r0[:10] + r2 + r0[10:30]))[:25]
+def create_merge_ranking_columns(row, w1=0.2, w2=0.8):
+    r1 = list(map(int, row["MisconceptionId"].split()))
+    r2 = list(map(int, row["llm_id_v1"].split()))
+    refined_ranking = merge_ranking(r1, r2, w1=w1, w2=w2)
     return " ".join(map(str, refined_ranking))
 
 
@@ -355,57 +264,6 @@ class Runner:
 
         logger.info("Prepare LLM reranker done.")
 
-    def prepare_llm_reranker_v2(
-        self,
-    ):
-        df_target = pd.read_parquet("df_target.parquet")
-        logger.info("Create llm_id_v1 with prostprocess.")
-        df_target[["llm_id_v1", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1, result_type="expand")
-        logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
-
-        logger.info("Create LLM input for llmreranker_v2.")
-        df_target[["retrieval_text", "notfound_count"]] = df_target.apply(lambda x: create_retrieval_text_v2(x, self.mapping_dict), axis=1, result_type="expand")
-        logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
-
-        df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
-        df_target.to_parquet("df_target.parquet", index=False)
-
-        logger.info("Prepare LLM reranker_v2 done.")
-
-    def prepare_llm_reranker_v3(
-        self,
-    ):
-        df_target = pd.read_parquet("df_target.parquet")
-        logger.info("Create llm_id_v2 with prostprocess.")
-        df_target[["llm_id_v2", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1, result_type="expand")
-        logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
-
-        logger.info("Create LLM input for llmreranker_v3.")
-        df_target[["retrieval_text", "notfound_count"]] = df_target.apply(lambda x: create_retrieval_text_v3(x, self.mapping_dict), axis=1, result_type="expand")
-        logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
-
-        df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer, "five"), axis=1)
-        df_target.to_parquet("df_target.parquet", index=False)
-
-        logger.info("Prepare LLM reranker_v3 done.")
-
-    def prepare_llm_reranker_v4(
-        self,
-    ):
-        df_target = pd.read_parquet("df_target.parquet")
-        logger.info("Create llm_id_v3 with prostprocess.")
-        df_target[["llm_id_v3", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1, result_type="expand")
-        logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
-
-        logger.info("Create LLM input for llmreranker_v3.")
-        df_target[["retrieval_text", "notfound_count"]] = df_target.apply(lambda x: create_retrieval_text_v4(x, self.mapping_dict), axis=1, result_type="expand")
-        logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
-
-        df_target["llm_input"] = df_target.apply(lambda x: apply_template_v2(x, self.tokenizer), axis=1)
-        df_target.to_parquet("df_target.parquet", index=False)
-
-        logger.info("Prepare LLM reranker_v4 done.")
-
     def merge_ranking(
         self,
     ):
@@ -414,8 +272,8 @@ class Runner:
         logger.info(f"MisconceptionId_score: {val_score}")
         self.info["scores"].append(val_score)
 
-        logger.info("Create llm_id_v4 with prostprocess.")
-        df_target[["llm_id_v4", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 5), axis=1, result_type="expand")
+        logger.info("Create llm_id_v1 with prostprocess.")
+        df_target[["llm_id_v1", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 3), axis=1, result_type="expand")
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
         self.info["scores"].append(0)
 
