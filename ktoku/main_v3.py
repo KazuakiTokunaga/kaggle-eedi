@@ -113,12 +113,12 @@ def create_retrieval_text_r(row, mapping: dict, r=0):
 
     res_text = ""
     notfound_occurred = 0
-    index_mapping = dict()
+    index_mapping = []
     for i, (id, text) in enumerate(zip(target_ids, misconceptions_text, strict=False)):
         if text == "error":
             notfound_occurred += 1
             continue
-        index_mapping[i] = id
+        index_mapping.append(id)
         res_text += f"{i}. {text}\n"
     return res_text, notfound_occurred, index_mapping
 
@@ -131,12 +131,12 @@ def create_retrieval_text_final(row, mapping: dict):
 
     res_text = ""
     notfound_occurred = 0
-    index_mapping = dict()
+    index_mapping = []
     for i, (id, text) in enumerate(zip(target_ids, misconceptions_text, strict=False)):
         if text == "error":
             notfound_occurred += 1
             continue
-        index_mapping[i] = id
+        index_mapping.append(id)
         res_text += f"{i}. {text}\n"
     return res_text, notfound_occurred, index_mapping
 
