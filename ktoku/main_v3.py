@@ -228,7 +228,7 @@ def postprocess_llm_output(row, length=10):
 
 def postprocess_llm_output_single(row, suffix="r0", fallback=0):
     x = row[f"fullLLMText_{suffix}"]
-    mapping = row["mapping_dict"]
+    mapping = row[f"mapping_dict_{suffix}"]
     exception_occurred = 0
     try:
         res = mapping[int(x)]
@@ -362,7 +362,7 @@ class Runner:
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
 
         logger.info("Create LLM input for llmreranker_r0.")
-        df_target[["retrieval_text", "notfound_count", "mapping_dict"]] = df_target.apply(
+        df_target[["retrieval_text", "notfound_count", "mapping_dict_r0"]] = df_target.apply(
             lambda x: create_retrieval_text_r(x, self.mapping_dict, r=0), axis=1, result_type="expand"
         )
         logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
@@ -376,7 +376,7 @@ class Runner:
         df_target = pd.read_parquet("df_target.parquet")
 
         logger.info(f"Create LLM input for llmreranker for r={r}.")
-        df_target[["retrieval_text", "notfound_count", "mapping_dict"]] = df_target.apply(
+        df_target[["retrieval_text", "notfound_count", f"mapping_dict_r{r}"]] = df_target.apply(
             lambda x: create_retrieval_text_r(x, self.mapping_dict, r=r), axis=1, result_type="expand"
         )
         logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
@@ -396,7 +396,9 @@ class Runner:
             df_target[[f"llm_id_r{i}", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output_single(x, fallback=i, suffix=f"r{i}"), axis=1, result_type="expand")
             logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
 
-        df_target[["retrieval_text", "notfound_count", "mapping_dict"]] = df_target.apply(lambda x: create_retrieval_text_final(x, self.mapping_dict), axis=1, result_type="expand")
+        df_target[["retrieval_text", "notfound_count", "mapping_dict_final"]] = df_target.apply(
+            lambda x: create_retrieval_text_final(x, self.mapping_dict), axis=1, result_type="expand"
+        )
         logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
 
         df_target["llm_input"] = df_target.apply(lambda x: apply_template_single(x, self.tokenizer), axis=1)
