@@ -348,6 +348,7 @@ class Runner:
         df_target[["retrieval_text", "notfound_count", "mapping_dict"]] = df_target.apply(lambda x: create_retrieval_text(x, self.mapping_dict), axis=1, result_type="expand")
         logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
         df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer, number="six"), axis=1)
+        self.df_target = df_target
         df_target.to_parquet("df_target.parquet", index=False)
 
         logger.info("Prepare LLM reranker done.")
