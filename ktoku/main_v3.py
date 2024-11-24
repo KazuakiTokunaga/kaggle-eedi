@@ -217,7 +217,7 @@ def postprocess_llm_output(row, length=10):
     try:
         res = x.split("\n")[0].replace(",", " ")
         res_lst = list(map(int, res.split()))
-        res_lst = [mapping[idx] for idx in res_lst][:length]
+        res_lst = [str(mapping[idx]) for idx in res_lst][:length]
         res = " ".join(res_lst)
         assert len(res_lst) == length
     except:  # noqa
@@ -256,7 +256,7 @@ def merge_ranking(r1, r2, w1=0.5, w2=0.5):
 
 
 def create_merge_ranking_columns(row):
-    res_list = [row.llm_id_final] + [row.llm_id_r0, row.llm_id_r1, row.llm_id_r2, row.llm_id_r3] + row.MisconceptionId.split()
+    res_list = list(map(str, [row.llm_id_final, row.llm_id_r0, row.llm_id_r1, row.llm_id_r2, row.llm_id_r3])) + row.MisconceptionId.split()
     res_list = list(dict.fromkeys(res_list))[:25]
 
     return " ".join(map(str, res_list))
