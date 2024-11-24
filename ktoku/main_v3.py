@@ -217,7 +217,7 @@ def postprocess_llm_output(row, length=10):
     try:
         res = x.split("\n")[0].replace(",", " ")
         res_lst = list(map(int, res.split()))
-        res_lst = [mapping[idx] for idx in res_lst if idx in mapping][:length]
+        res_lst = [mapping[idx] for idx in res_lst][:length]
         res = " ".join(res_lst)
         assert len(res_lst) == length
     except:  # noqa
@@ -231,7 +231,7 @@ def postprocess_llm_output_single(row, suffix="r0", fallback=0):
     mapping = row["mapping_dict"]
     exception_occurred = 0
     try:
-        res = mapping[x]
+        res = mapping[int(x)]
     except:  # noqa
         res = int(row["MisconceptionId"].split()[fallback])
         exception_occurred += 1
@@ -358,7 +358,7 @@ class Runner:
     ):
         df_target = pd.read_parquet("df_target.parquet")
         logger.info("Create llm_id_v1 with prostprocess.")
-        df_target[["llm_id_v1", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 10), axis=1, result_type="expand")
+        df_target[["llm_id_v1", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 6), axis=1, result_type="expand")
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
 
         logger.info("Create LLM input for llmreranker_r0.")
