@@ -1,0 +1,2 @@
+# kaggle-eedi
+This repository contains the 77th solution for the Kaggle competition [Eedi - Mining Misconceptions in Mathematics](https://www.kaggle.com/competitions/eedi-mining-misconceptions-in-mathematics).
