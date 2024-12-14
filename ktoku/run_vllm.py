@@ -4,7 +4,7 @@ import pandas as pd
 import vllm
 
 
-def main(filename, model_path, quantization=None):
+def main(filename, model_path, quantization=None, suffix=""):
     df = pd.read_parquet(filename)
 
     if quantization != "awq":
@@ -36,7 +36,7 @@ def main(filename, model_path, quantization=None):
     )
 
     responses = [x.outputs[0].text for x in responses]
-    df["fullLLMText"] = responses
+    df[f"fullLLMText{suffix}"] = responses
     df.to_parquet("df_target.parquet", index=False)
 
 
@@ -45,7 +45,8 @@ if __name__ == "__main__":
     parser.add_argument("--model_path", type=str, default="Qwen/Qwen2.5-3B-Instruct")  # Qwen/Qwen2.5-32B-Instruct-AWQ
     parser.add_argument("--file_path", type=str, default="df_target.parquet")
     parser.add_argument("--quantization", type=str, default=None)  # awq
+    parser.add_argument("--suffix", type=str, default="")
     args = parser.parse_args()
 
     print("Run vllm args:", args)
-    main(filename=args.file_path, model_path=args.model_path, quantization=args.quantization)
+    main(filename=args.file_path, model_path=args.model_path, quantization=args.quantization, suffix=args.suffix)

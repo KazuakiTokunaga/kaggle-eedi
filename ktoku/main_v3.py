@@ -125,8 +125,27 @@ def create_retrieval_text_r(row, mapping: dict, r=0):
 
 def create_retrieval_text_final(row, mapping: dict):
     target_ids = list(set([row.llm_id_r0, row.llm_id_r1, row.llm_id_r2, row.llm_id_r3]))
-    if len(target_ids) != 4:
-        target_ids = list(map(int, row.MisconceptionId.split()))[:4]
+    target_ids += list(map(int, row.MisconceptionId.split()))[:20]
+    target_ids = list(dict.fromkeys(target_ids))[:9]
+    misconceptions_text = [mapping.get(m, "error") for m in target_ids]
+
+    res_text = ""
+    notfound_occurred = 0
+    index_mapping = []
+    for i, (id, text) in enumerate(zip(target_ids, misconceptions_text, strict=False)):
+        if text == "error":
+            notfound_occurred += 1
+            continue
+        index_mapping.append(id)
+        res_text += f"{i}. {text}\n"
+    return res_text, notfound_occurred, index_mapping
+
+
+def create_retrieval_text_final_v2(row, mapping: dict):
+    target_ids = list(set([row.llm_id_r0, row.llm_id_r1, row.llm_id_r2, row.llm_id_r3]))
+    target_ids += list(map(int, row.MisconceptionId.split()))[:20]
+    target_ids = [i for i in target_ids if i != row.llm_id_final]
+    target_ids = list(dict.fromkeys(target_ids))[:9]
     misconceptions_text = [mapping.get(m, "error") for m in target_ids]
 
     res_text = ""
@@ -210,9 +229,9 @@ def apply_template_single(row, tokenizer):
     return text
 
 
-def postprocess_llm_output(row, length=10):
-    x = row["fullLLMText"]
-    mapping = row["mapping_dict"]
+def postprocess_llm_output(row, length=10, suffix=""):
+    x = row[f"fullLLMText{suffix}"]
+    mapping = row[f"mapping_dict{suffix}"]
     exception_occurred = 0
     try:
         res = x.split("\n")[0].replace(",", " ")
@@ -256,7 +275,7 @@ def merge_ranking(r1, r2, w1=0.5, w2=0.5):
 
 
 def create_merge_ranking_columns(row):
-    res_list = list(map(str, [row.llm_id_final, row.llm_id_r0, row.llm_id_r1, row.llm_id_r2, row.llm_id_r3])) + row.MisconceptionId.split()
+    res_list = [str(row.llm_id_final)] + row.llm_id_final_v2.split() + list(map(str, [row.llm_id_r0, row.llm_id_r1, row.llm_id_r2, row.llm_id_r3])) + row.MisconceptionId.split()
     res_list = list(dict.fromkeys(res_list))[:25]
 
     return " ".join(map(str, res_list))
@@ -367,7 +386,7 @@ class Runner:
         )
         logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
 
-        df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
+        df_target["llm_input"] = df_target.apply(lambda x: apply_template_single(x, self.tokenizer), axis=1)
         df_target.to_parquet("df_target.parquet", index=False)
 
         logger.info("Prepare LLM reranker done.")
@@ -381,7 +400,7 @@ class Runner:
         )
         logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
 
-        df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer), axis=1)
+        df_target["llm_input"] = df_target.apply(lambda x: apply_template_single(x, self.tokenizer), axis=1)
         df_target.to_parquet("df_target.parquet", index=False)
 
         logger.info(f"Prepare LLM reranker for r={r} done.")
@@ -406,6 +425,25 @@ class Runner:
 
         logger.info("Prepare LLM reranker final done.")
 
+    def prepare_llm_reranker_final_v2(
+        self,
+    ):
+        df_target = pd.read_parquet("df_target.parquet")
+
+        logger.info("Create llm_id_final with prostprocess.")
+        df_target[["llm_id_final", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output_single(x, fallback=0, suffix="final"), axis=1, result_type="expand")
+        logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
+
+        df_target[["retrieval_text", "notfound_count", "mapping_dict_final_v2"]] = df_target.apply(
+            lambda x: create_retrieval_text_final_v2(x, self.mapping_dict), axis=1, result_type="expand"
+        )
+        logger.info(f"NOTFOUND_COUNT: {df_target['notfound_count'].sum()}")
+
+        df_target["llm_input"] = df_target.apply(lambda x: apply_template(x, self.tokenizer, number="three"), axis=1)
+        df_target.to_parquet("df_target.parquet", index=False)
+
+        logger.info("Prepare LLM reranker final done.")
+
     def merge_ranking(
         self,
     ):
@@ -415,7 +453,7 @@ class Runner:
         self.info["scores"].append(val_score)
 
         logger.info("Create llm_id final with prostprocess.")
-        df_target[["llm_id_final", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output_single(x, fallback=0, suffix="final"), axis=1, result_type="expand")
+        df_target[["llm_id_final_v2", "exception_flag"]] = df_target.apply(lambda x: postprocess_llm_output(x, 3, suffix="_final_v2"), axis=1, result_type="expand")
         logger.info(f"EXCEPTION_COUNT: {df_target['exception_flag'].sum()}")
         self.info["scores"].append(0)
 
